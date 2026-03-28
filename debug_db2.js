@@ -34,8 +34,4 @@ Object.keys(grouped).forEach(code => {
   if (grouped[code].length > 1) {
     console.log('WARNING: Code ' + code + ' has multiple names: ' + grouped[code].join(', '));
   }
-<<<<<<< HEAD
 });
-=======
-});
->>>>>>> be6f30af6f28dda55824a893d7c4050432bd7919
