@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -215,3 +216,222 @@ initPage();
 
 
 
+=======
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>考試結果 - 數理資優班考題系統</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']], displayMath: [['$$','$$'],['\\[','\\]']] } };</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" id="MathJax-script" async></script>
+<style>
+html{overflow-y:scroll;}
+body{font-family:'Noto Sans TC',sans-serif;}
+.top-nav-btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  height:36px;
+  line-height:1;
+  box-sizing:border-box;
+  white-space:nowrap;
+}
+.tab-btn{transition:all .2s;}
+.tab-btn.active{background:#4338ca;color:#fff;}
+</style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+<header class="bg-indigo-700 text-white py-4 px-6 shadow sticky top-0 z-50">
+  <div class="max-w-7xl mx-auto flex items-center gap-4">
+    <a href="/exam-list.html" class="top-nav-btn text-white hover:text-white bg-white/10 hover:bg-white/20 border border-white/30 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors">🎓 學生首頁</a>
+    <div class="flex gap-2 flex-wrap items-center">
+      <a href="/exam-list.html" class="tab-btn top-nav-btn px-4 py-1.5 rounded-lg text-sm font-medium border border-white/30 text-indigo-200 hover:text-white hover:bg-white/10">📝 選擇考題</a>
+      <a href="/results.html" class="tab-btn top-nav-btn px-4 py-1.5 rounded-lg text-sm font-medium border border-white/30 text-indigo-200 hover:text-white hover:bg-white/10">📊 成績查詢</a>
+      <span class="tab-btn top-nav-btn active px-4 py-1.5 rounded-lg text-sm font-medium border border-white/30">📄 考試結果</span>
+    </div>
+    <div class="ml-auto flex items-center gap-2">
+      <button onclick="logoutStudent()" class="top-nav-btn px-4 py-1.5 rounded-lg text-sm font-medium border border-white/30 text-indigo-200 hover:text-white hover:bg-white/10 transition-colors">登出</button>
+    </div>
+  </div>
+</header>
+<main class="max-w-7xl mx-auto px-4 py-6" id="result-container">
+  <div class="text-center py-16 text-gray-500">載入中...</div>
+</main>
+<script>
+const studentLoginUrl = '/login.html?role=student&return_to=' + encodeURIComponent(location.pathname + location.search);
+const params = new URLSearchParams(location.search);
+const id = params.get('id');
+const token = params.get('token');
+const RECENT_LOOKUP_KEY = 'recent_lookup_records_v1';
+const RECENT_LOOKUP_LIMIT = 20;
+
+function formatShortCode(code) {
+  if (!code || code.length < 8) return code || '—';
+  return code.substring(0, 4) + '-' + code.substring(4);
+}
+
+function redirectToStudentLogin() {
+  location.replace(studentLoginUrl);
+}
+
+function readRecentLookups() {
+  try {
+    const raw = localStorage.getItem(RECENT_LOOKUP_KEY);
+    const list = JSON.parse(raw || '[]');
+    if (!Array.isArray(list)) return [];
+    return list.filter(item => item && item.lookup_token && item.submission_id);
+  } catch (_) {
+    return [];
+  }
+}
+
+function writeRecentLookups(list) {
+  try {
+    localStorage.setItem(RECENT_LOOKUP_KEY, JSON.stringify(list.slice(0, RECENT_LOOKUP_LIMIT)));
+  } catch (_) {}
+}
+
+function rememberLookupRecord(record) {
+  if (!record || !record.lookup_token || !record.submission_id) return;
+  const normalized = {
+    submission_id: Number(record.submission_id),
+    exam_id: Number(record.exam_id || 0) || null,
+    lookup_token: String(record.lookup_token),
+    exam_title: String(record.exam_title || ''),
+    submitted_at: String(record.submitted_at || ''),
+    student_name: String(record.student_name || ''),
+    saved_at: new Date().toISOString()
+  };
+  const current = readRecentLookups();
+  const merged = [normalized, ...current.filter(item =>
+    !(Number(item.submission_id) === normalized.submission_id && String(item.lookup_token) === normalized.lookup_token)
+  )];
+  writeRecentLookups(merged);
+}
+
+async function ensureStudentSession() {
+  try {
+    const res = await fetch('/api/student/me', { credentials: 'same-origin' });
+    if (!res.ok) {
+      redirectToStudentLogin();
+      return false;
+    }
+    return true;
+  } catch (_) {
+    redirectToStudentLogin();
+    return false;
+  }
+}
+
+function getOptionLabel(q, letter) {
+  if (!letter) return '（未作答）';
+  if (q.type === 'true_false') return letter.toUpperCase() === 'T' ? '是' : '否';
+  const map = { A: q.option_a, B: q.option_b, C: q.option_c, D: q.option_d };
+  const text = map[letter.toUpperCase()];
+  return text ? letter.toUpperCase() + '. ' + escHtml(text) : letter.toUpperCase();
+}
+function escHtml(s){if(s==null)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+async function loadResult() {
+  if (!id || !token) {
+    document.getElementById('result-container').innerHTML = '<p class="text-center py-16 text-red-500">缺少成績查詢參數</p>';
+    return;
+  }
+  const res = await fetch(`/api/submissions/${id}?token=${encodeURIComponent(token)}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    document.getElementById('result-container').innerHTML = `<p class="text-center py-16 text-red-500">${escHtml(err.error || '找不到成績資料')}</p>`;
+    return;
+  }
+  const data = await res.json();
+  rememberLookupRecord({
+    submission_id: data.id || id,
+    exam_id: data.exam_id,
+    lookup_token: token,
+    exam_title: data.exam_title || '',
+    submitted_at: data.submitted_at || '',
+    student_name: data.student_name || ''
+  });
+  const pct = Math.round(data.score / data.total_score * 100);
+  const color = pct >= 80 ? 'text-green-600' : pct >= 60 ? 'text-yellow-600' : 'text-red-600';
+  document.getElementById('result-container').innerHTML = `
+    <div class="bg-white rounded-xl shadow p-6 mb-6 text-center">
+      <h2 class="text-2xl font-bold text-gray-800 mb-2">${escHtml(data.student_name)} 的成績</h2>
+      <div class="text-7xl font-bold ${color} my-6">${pct}%</div>
+      <p class="text-gray-500">${data.score} / ${data.total_score} 分 &nbsp;·&nbsp; 作答時間: ${data.submitted_at}</p>
+      ${data.short_code ? `
+      <div class="mt-4 inline-block bg-indigo-50 border border-indigo-200 rounded-xl px-6 py-3">
+        <p class="text-xs text-gray-500 mb-1">📋 查詢碼（請記下，下次可用來查詢成績）</p>
+        <p class="text-2xl font-mono font-bold text-indigo-600 tracking-widest">${escHtml(formatShortCode(data.short_code))}</p>
+      </div>` : ''}
+    </div>
+    <div class="space-y-4">
+      ${data.details.map((d,i) => {
+        const isDontKnow = d.given_answer === '__dont_know__';
+        const isPending = d.grading_status === 'pending';
+        const isGraded = d.grading_status === 'graded' && ['writing','speaking'].includes(d.type);
+        const borderColor = d.is_correct ? 'border-green-400' : isDontKnow ? 'border-orange-400' : isPending ? 'border-blue-400' : isGraded ? 'border-amber-400' : 'border-red-400';
+        const statusColor = d.is_correct ? 'text-green-600' : isDontKnow ? 'text-orange-600' : isPending ? 'text-blue-600' : isGraded ? 'text-amber-600' : 'text-red-600';
+        const statusText  = d.is_correct ? '✓ 答對 +'+d.score_earned+'分' : isDontKnow ? '🤷 我不會' : isPending ? '⏳ 待批改' : isGraded ? '✍️ 已批改 +'+(d.rubric_score||0)+'分' : '✗ 答錯';
+        const givenDisplay = isDontKnow ? '<span class="text-orange-600 font-medium">🤷 我不會</span>'
+          : isPending ? `<span class="text-blue-600">${escHtml(d.given_answer) || '（未作答）'}</span>`
+          : isGraded ? `<span class="text-gray-700">${escHtml(d.given_answer) || '（未作答）'}</span>`
+          : `<span class="${d.is_correct ? 'text-green-600' : 'text-red-600'} font-medium">${['choice','true_false'].includes(d.type) ? getOptionLabel(d, d.given_answer) : (escHtml(d.given_answer) || '（未作答）')}</span>`;
+        return `
+        <div class="bg-white rounded-xl shadow p-5 border-l-4 ${borderColor}">
+          <div class="flex justify-between mb-2">
+            <span class="font-medium text-gray-700">第 ${i+1} 題</span>
+            <span class="${statusColor} font-bold">${statusText}</span>
+          </div>
+          <p class="text-gray-800 mb-3">${escHtml(d.content)}</p>
+          <div class="text-sm space-y-1">
+            <p>你的答案：${givenDisplay}</p>
+            ${(!d.is_correct && !isDontKnow && !isPending && !isGraded) ? '<p>正確答案：<span class="text-gray-500 font-medium">（答案不公開）</span></p>' : ''}
+            ${isDontKnow ? '<p>正確答案：<span class="text-gray-500 font-medium">（答案不公開）</span></p><p class="text-orange-500 text-xs mt-1">📌 此題已標記為需加強，出題時將優先複習</p>' : ''}
+            ${isPending ? '<p class="text-blue-500 text-xs mt-1">📋 此題為寫作/口說題，將由老師批改後更新分數</p>' : ''}
+            ${isGraded ? `<div class="mt-2 bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-1">
+              <p class="text-amber-800 font-medium text-xs">📝 老師批改結果</p>
+              <p class="text-amber-700">得分：<span class="font-bold">${d.rubric_score||0}</span> / <span class="text-gray-500">${d.score_earned||0}</span> 分</p>
+              ${d.reviewer_notes ? `<p class="text-gray-700 mt-1">評語：${escHtml(d.reviewer_notes)}</p>` : ''}
+            </div>` : ''}
+            ${d.explanation ? `<p class="text-gray-500 mt-2 bg-gray-50 p-2 rounded">💡 ${escHtml(d.explanation)}</p>` : ''}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="mt-6 text-center flex gap-4 justify-center">
+      <a href="/result.html?id=${id}&token=${encodeURIComponent(token)}" class="bg-gray-600 hover:bg-gray-700 text-white px-8 py-3 rounded-lg font-medium transition-colors">返回考試列表</a>
+      <a href="/analysis.html?id=${id}&token=${encodeURIComponent(token)}" class="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-3 rounded-lg font-medium transition-colors">📊 查看答題分析報告</a>
+      <a href="/results.html?token=${encodeURIComponent(token)}" class="bg-gray-600 hover:bg-gray-700 text-white px-8 py-3 rounded-lg font-medium transition-colors">查詢碼頁面</a>
+      <a href="/api/submissions/${id}/report.pdf?token=${encodeURIComponent(token)}" target="_blank" class="bg-rose-600 hover:bg-rose-700 text-white px-8 py-3 rounded-lg font-medium transition-colors">⬇️ 下載成績報告 (PDF)</a>
+    </div>
+  `;
+  if (window.MathJax) MathJax.typesetPromise([document.getElementById('result-container')]);
+}
+async function logoutStudent() {
+  try {
+    await fetch('/api/student/logout', { method: 'POST', credentials: 'same-origin' });
+  } catch (_) {}
+  location.replace('/login.html?role=student');
+}
+
+window.addEventListener('pageshow', () => {
+  ensureStudentSession();
+});
+
+async function initPage() {
+  if (!(await ensureStudentSession())) return;
+  loadResult();
+}
+
+initPage();
+
+</script>
+</body>
+</html>
+
+
+
+
+>>>>>>> be6f30af6f28dda55824a893d7c4050432bd7919

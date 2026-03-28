@@ -69,4 +69,8 @@ console.log('7. ROOT CAUSES FOUND:\n');
 console.log('   A. DUPLICATE SUBJECT CODES: Both subject_id=1 and other subjects have "數學" name');
 console.log('   B. GRADE_LEVEL MISMATCH: Questions inserted with wrong grade_level value');
 console.log('   C. HARDCODED IDS: seed500.js and seed_elementary.js use literal subject_ids that may not match database');
+<<<<<<< HEAD
 console.log('   D. API LOGIC: /api/questions filters by BOTH grade_level AND subject_id together');
+=======
+console.log('   D. API LOGIC: /api/questions filters by BOTH grade_level AND subject_id together');
+>>>>>>> be6f30af6f28dda55824a893d7c4050432bd7919

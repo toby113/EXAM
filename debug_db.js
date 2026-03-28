@@ -9,4 +9,8 @@ counts.forEach(c => console.log(c.grade_level + ': ' + c.cnt));
 
 console.log('\n=== QUESTION COUNTS BY SUBJECT_ID ===');
 const qCounts = db.prepare('SELECT subject_id, COUNT(*) as cnt FROM questions GROUP BY subject_id ORDER BY subject_id').all();
+<<<<<<< HEAD
 qCounts.forEach(c => console.log('subject_id ' + c.subject_id + ': ' + c.cnt));
+=======
+qCounts.forEach(c => console.log('subject_id ' + c.subject_id + ': ' + c.cnt));
+>>>>>>> be6f30af6f28dda55824a893d7c4050432bd7919
